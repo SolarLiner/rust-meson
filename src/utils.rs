@@ -1,16 +1,16 @@
 #[derive(Clone, Debug, PartialEq)]
-pub struct Location {
-    pub line: usize,
-    pub col: usize,
+pub struct Location<T> {
+    pub line: T,
+    pub col: T,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct LRange {
-    pub start: Location,
-    pub end: Location,
+pub struct LRange<T> {
+    pub start: T,
+    pub end: T,
 }
 
-impl<'a> Location {
+impl<'a> Location<usize> {
     pub fn from_offset(s: &'a str, offset: usize) -> Self {
         let mut current = 0usize;
         let lines: Vec<_> = s.split('\n').into_iter().collect();
@@ -37,7 +37,7 @@ impl<'a> Location {
     }
 }
 
-impl<'a> LRange {
+impl<'a> LRange<Location<usize>> {
     pub fn from_offset(s: &'a str, start: usize, end: usize) -> Self {
         let start = Location::from_offset(s, start);
         let end = Location::from_offset(s, end);
