@@ -1,10 +1,10 @@
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Location<T> {
     pub line: T,
     pub col: T,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LRange<T> {
     pub start: T,
     pub end: T,
