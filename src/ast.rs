@@ -1,4 +1,5 @@
 use crate::utils::LRange;
+use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NodeData<T, L> {
@@ -26,7 +27,7 @@ pub enum Node<L> {
     Arglist(NodeData<Vec<Node<L>>, L>),
     Array(NodeData<Box<Node<L>>, L>),
     KeyValue(NodeData<Box<(Node<L>, Node<L>)>, L>),
-    KwargList(NodeData<Vec<Node<L>>, L>),
+    KwargList(NodeData<HashMap<String, Node<L>>, L>),
     Dict(NodeData<Box<Node<L>>, L>),
     Assignment(NodeData<Box<(Node<L>, Node<L>)>, L>),
     PlusAssignment(NodeData<Box<(Node<L>, Node<L>)>, L>),
@@ -41,14 +42,12 @@ pub enum Node<L> {
     Empty,
 }
 
-impl Node<usize> {
-    pub fn transform_offset<'a>(self, input: &'a str) -> Node<LRange<usize>> {}
-}
-
 peg::parser! {
     grammar meson() for str {
         use super::Node;
         use std::i32;
+        use std::collections::HashMap;
+        use std::iter::FromIterator;
         rule eol() -> char = quiet!{"\r"? "\n"} {'\n'} / expected!("<EOL>")
         rule tab() -> char = quiet!{"\t"} {'\t'} / expected!("<TAB>")
         rule ws() = quiet!{([' ' | '\t'] / eol())*}
@@ -104,12 +103,19 @@ peg::parser! {
             = quiet!{ws() start:position!() "[" l:arglist() "]" end:position!() ws() {Node::Array(NodeData {data: Box::new(l), range: LRange {start, end}})}}
             / expected!("array")
 
-        pub rule keyvalue() -> Node<usize> = quiet!{ws() start:position!() k:identifier() ":" v:value() end:position!() ws() {
-            Node::KeyValue(NodeData {data: Box::new((k, v)), range: LRange {start, end}})
+        #[cache]
+        pub rule keyvalue() -> (String, Node<usize>) = quiet!{ws() start:position!() k:identifier() ":" v:value() end:position!() ws() {?
+            match k {
+                Node::Identifier(NodeData {data, range:_}) => Ok((data, v)),
+                _ => Err("Identifier expected in key of key-value pair")
+            }
         }} / expected!("key-value pair")
 
         pub rule kwlist() -> Node<usize> = quiet!{ws() start:position!() kv:keyvalue() ** (ws() "," ws()) end:position!() ws() {
-            Node::KwargList(NodeData {data: kv, range: LRange {start, end}})
+            Node::KwargList(NodeData {
+                data: HashMap::from_iter(kv),
+                range: LRange {start, end}
+            })
         }} / expected!("key-value list")
 
         pub rule dict() -> Node<usize> = quiet!{ws() start:position!() "{" k:kwlist() "}" end:position!() ws() {
@@ -155,8 +161,9 @@ peg::parser! {
             })
         }} / expected!("plus assignment")
 
+        #[cache]
         pub rule instruction() -> Node<usize>
-            = ws() n:(function() / assignment()) ws() {n}
+            = ws() n:(function() / assignment() / plus_assignment()) ws() {n}
 
         pub rule code_block() -> Node<usize>
             = ws() start:position!() i:(instruction()) ** (ws() eol() ws()) end:position!() ws() {
@@ -168,12 +175,17 @@ peg::parser! {
     }
 }
 
+pub fn parse(input: &str) -> Result<Node<usize>, peg::error::ParseError<peg::str::LineCol>> {
+    meson::code_block(input)
+}
+
 #[cfg(test)]
 mod tests {
     use super::meson;
     use super::Node;
     use super::NodeData;
     use crate::utils::LRange;
+    use std::collections::HashMap;
 
     #[test]
     fn parse_ident() {
@@ -250,19 +262,17 @@ mod tests {
                     range: LRange { start: 5, end: 6 },
                 })),
                 (Node::KwargList(NodeData {
-                    data: vec![Node::KeyValue(NodeData {
-                        data: Box::new((
-                            Node::Identifier(NodeData {
-                                data: "b".to_owned(),
-                                range: LRange { start: 8, end: 9 },
-                            }),
+                    data: {
+                        let hm = HashMap::new();
+                        hm.insert(
+                            "b",
                             Node::String(NodeData {
                                 data: "c".to_owned(),
-                                range: LRange { start: 10, end: 14 },
+                                range: LRange { start: 12, end: 14 },
                             }),
-                        )),
-                        range: LRange { start: 8, end: 14 },
-                    })],
+                        );
+                        hm
+                    },
                     range: LRange { start: 8, end: 14 },
                 })),
             )),
