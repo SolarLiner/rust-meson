@@ -1,0 +1,67 @@
+//
+// Created by intellij-pest on 2020-01-01
+// meson
+// Author: solarliner
+//
+//NEWLINE = ${ "\r"? ~ "\n" }
+WHITESPACE = _{ " " | "\t" }
+COMMENT = _{ "#" ~ ANY* ~ NEWLINE }
+ident = ${ !keywords ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+    keywords = { operation_bin | operation_not | boolean | "if" | "elseif" | "else" | "endif" }
+
+member_access = { ident ~ ( "." ~ ident)* }
+
+string_char_special = { "\\t" | "\\n" | "\\" }
+string_char = { string_char_special | !("\\" | "'" | NEWLINE) ~ ANY }
+string_char_multiline = { string_char_special | !("\\" | "'") ~ ANY }
+
+value = { (boolean | array | dict | string | number | function | ident) }
+	boolean = { "true" | "false" }
+    string = { (string_multiline | string_inline) }
+        string_inline = ${ "'" ~ string_char* ~ "'"}
+        string_multiline = ${ "'''" ~ string_char_multiline* ~ "'''"}
+    number = { ( num_float | num_oct | num_hex | num_dec ) }
+        num_oct = ${ "-"? ~ "0o" ~ ASCII_OCT_DIGIT+ }
+        num_dec = ${ "-"? ~ ASCII_DIGIT+ }
+        num_hex = ${ "-"? ~ "0x" ~ ASCII_HEX_DIGIT+ }
+        num_float = ${ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
+    array = { "[" ~ arglist? ~ "]" }
+        arglist = { expr ~ !":" ~ ("," ~ expr ~ !":")* }
+    dict = { "{" ~ kwarglist? ~ "}" }
+        kwarglist = { kwarg ~ ("," ~ kwarg)* }
+            kwarg = { ident ~ ":" ~ expr }
+    function = { member_access ~ "(" ~ arglist? ~ ("," ~ kwarglist)? ~ ")" }
+
+operation_not = { "not" }
+operation = { operation_bin | operation_cmp | operation_dec }
+    operation_bin = { and | or }
+        and = { "and" }
+        or = { "or" }
+    operation_cmp = { less_than | less_equal | greater_than | greater_equal | equal }
+        less_than = { "<" }
+        less_equal = { "<=" }
+        greater_than = { ">" }
+        greater_equal = { ">=" }
+        equal = { "==" }
+    operation_dec = { power | mult | div | add | sub }
+        power = { "^" }
+        mult = { "*" }
+        div = { "/" }
+        add = { "+" }
+        sub = { "-" }
+
+expr = { operation_not ~ statement | statement ~ (operation ~ statement)* }
+statement = { "(" ~ expr ~ ")" | if_stmt | value }
+    if_stmt = { if_block ~ NEWLINE+ ~ (elseif_block ~ NEWLINE+)? ~ (else_block ~ NEWLINE+)? ~ "endif" }
+    	if_block = { "if" ~ expr ~ NEWLINE+ ~ code_block? }
+        elseif_block = { "elseif" ~ expr ~ NEWLINE+ ~ code_block? }
+        else_block = { "else" ~ NEWLINE+ ~ code_block? }
+
+assignment = { member_access ~ "=" ~ expr }
+plus_assignment = { member_access ~ "+=" ~ expr }
+
+instruction = { assignment | plus_assignment | expr }
+
+code_block = { instruction ~ (NEWLINE+ ~ instruction)* }
+
+program = { SOI ~ code_block? ~ EOI }
