@@ -1,0 +1,24 @@
+//
+// Created by intellij-pest on 2020-03-20
+// rust
+// Author: solarliner
+//
+
+COMMENT = _{("#" ~ (!"\n" ~ ANY)* ~ "\n")+}
+WHITESPACE = _{ (" " | "\t" | "\n")+ }
+
+lit_bool = {"true" | "false"}
+lit_str  = ${"\"" ~ (!"\"" ~ !"\n" ~ ANY)* ~ "\""}
+lit_num  = { ASCII_DIGIT+ }
+atom = _{ lit_bool | lit_str | lit_num }
+
+binop_expr = { atom ~ (binop ~ atom)* }
+	binop = _{binop_add | binop_sub | binop_mul | binop_div | binop_and | binop_or}
+    binop_add = {"+"}
+    binop_sub = {"-"}
+    binop_mul = {"*"}
+    binop_div = {"/"}
+    binop_and = {"and"}
+    binop_or = {"or"}
+
+
